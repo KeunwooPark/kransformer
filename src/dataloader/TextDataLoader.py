@@ -8,5 +8,5 @@ class TextDataLoader(ABC):
         pass
 
     @abstractmethod
-    def get_vocab_freq(self):
+    def load_text_items(self):
         pass
