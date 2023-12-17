@@ -110,6 +110,7 @@ class BPETokenizer(Tokenizer):
         # sort the tokens and assign the id
         # we want to have the similar tokens to have similar ids
         # so we sort the tokens by the characters in the token
+        # i think it will help the model to learn the embeddings better
 
         sorted_tokens = sorted(token_to_id.keys())
         cur_id = 0
