@@ -8,5 +8,5 @@ class TextDataLoader(ABC):
         pass
 
     @abstractmethod
-    def load_text_items(self):
+    def load_text_items(self, is_train=True):
         pass
