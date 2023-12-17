@@ -96,13 +96,26 @@ class BPETokenizer(Tokenizer):
 
     def _create_token_to_id(self, word_counts):
         token_to_id = {}
-        cur_id = 0
+
         for word, count in word_counts.items():
             tokens = word.split()
             for token in tokens:
                 if token not in token_to_id:
-                    token_to_id[token] = {"id": cur_id, "count": count}
-                    cur_id += 1
+                    # set the id to 0. we will change the id later.
+                    token_to_id[token] = {"id": 0, "count": count}
+
+                else:
+                    token_to_id[token]["count"] += count
+
+        # sort the tokens and assign the id
+        # we want to have the similar tokens to have similar ids
+        # so we sort the tokens by the characters in the token
+
+        sorted_tokens = sorted(token_to_id.keys())
+        cur_id = 0
+        for token in sorted_tokens:
+            token_to_id[token]["id"] = cur_id
+            cur_id += 1
 
         return token_to_id
 
