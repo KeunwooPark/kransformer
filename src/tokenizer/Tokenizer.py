@@ -14,9 +14,25 @@ class Tokenizer(ABC):
         pass
 
     @abstractmethod
+    def save(self, path):
+        pass
+
+    @abstractmethod
+    def load(self, path):
+        pass
+
+    @abstractmethod
     def tokenize(self, text):
         pass
 
     @abstractmethod
     def detokenize(self, tokens):
+        pass
+
+    @abstractmethod
+    def encode(self, text):
+        pass
+
+    @abstractmethod
+    def decode(self, tokens):
         pass

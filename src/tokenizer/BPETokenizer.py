@@ -4,30 +4,47 @@
 import collections
 import re
 from .Tokenizer import Tokenizer
+import pathlib
 
 
 class BPETokenizer(Tokenizer):
-    def __init__(self, data_loader):
+    def __init__(self, data_loader, num_merges=1000):
         super().__init__(data_loader)
-        self.num_merges = 100
+        self.num_merges = num_merges
 
     def train(self):
         text_items = self.data_loader.load_text_items()
-        # text_items = ["low lower lowest newer newest", "low lower lowest"]
+
         word_counts = self._get_word_counts(text_items)
         for _ in range(self.num_merges):
             print(
                 "BPETokenizer train iteration: " + str(_) + "/" + str(self.num_merges)
             )
-            pairs = self._get_pairs(word_counts)
-            if not pairs:
+            pair_counts = self._get_token_pair_counts(word_counts)
+            if not pair_counts:
                 break
 
-            best = max(pairs, key=pairs.get)
+            best = max(pair_counts, key=pair_counts.get)
             word_counts = self._merge_word_counts(best, word_counts)
 
-        print(word_counts)
-        return word_counts
+        self.token_to_id = self._create_token_to_id(word_counts)
+        self.id_to_token = self._create_id_to_token(self.token_to_id)
+
+    def save(self, path):
+        pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            for token, id_and_count in self.token_to_id.items():
+                id = id_and_count["id"]
+                count = id_and_count["count"]
+                f.write(token + "\t" + str(id) + "\t" + str(count) + "\n")
+
+    def load(self, path):
+        self.token_to_id = {}
+        with open(path, "r") as f:
+            for line in f:
+                token, id, count = line.strip().split("\t")
+                self.token_to_id[token] = {"id": int(id), "count": int(count)}
+        self.id_to_token = self._create_id_to_token(self.token_to_id)
 
     def _get_word_counts(self, text_items):
         word_counts = collections.defaultdict(int)
@@ -52,7 +69,7 @@ class BPETokenizer(Tokenizer):
 
         return words
 
-    def _get_pairs(self, word_counts):
+    def _get_token_pair_counts(self, word_counts):
         pairs = collections.defaultdict(int)
         for word, count in word_counts.items():
             symbols = word.split()
@@ -77,8 +94,84 @@ class BPETokenizer(Tokenizer):
 
         return new_word_counts
 
+    def _create_token_to_id(self, word_counts):
+        token_to_id = {}
+        cur_id = 0
+        for word, count in word_counts.items():
+            tokens = word.split()
+            for token in tokens:
+                if token not in token_to_id:
+                    token_to_id[token] = {"id": cur_id, "count": count}
+                    cur_id += 1
+
+        return token_to_id
+
+    def _create_id_to_token(self, token_to_id):
+        id_to_token = {}
+        for token, id_and_count in token_to_id.items():
+            id = id_and_count["id"]
+            id_to_token[id] = token
+
+        return id_to_token
+
     def tokenize(self, text):
-        raise NotImplementedError
+        words = self._split_text_items_to_words([text])
+        tokens = []
+        for word in words:
+            tokens += self._tokenize_word(word)
+
+        return tokens
+
+    def _tokenize_word(self, word):
+        # merge tokens until the tokens cannot be merged anymore
+        # the merge process is the same as the training process
+        # it creates all the possible bigrams and merge the bigram that has the highest count in the word_counts
+
+        word_count = {word: 1}
+        while True:
+            pair_counts = self._get_token_pair_counts(word_count)
+
+            # for all the pairs, find the pair with the highest count in the token_to_id
+            best_pair = None
+            for pair in pair_counts:
+                bigram = "".join(pair)
+                if bigram in self.token_to_id:
+                    if best_pair is None:
+                        best_pair = pair
+                        continue
+                    else:
+                        best_bigram = "".join(best_pair)
+                        if (
+                            self.token_to_id[bigram]["count"]
+                            > self.token_to_id[best_bigram]["count"]
+                        ):
+                            best_pair = pair
+
+            if best_pair is None:
+                break
+
+            word_count = self._merge_word_counts(best_pair, word_count)
+
+        # after the merge process, the word_count should have only one key
+        # which is the merged token
+        # return the merged token
+        tokenized_word = list(word_count.keys())[0]
+        return tokenized_word.split()
+
+    def encode(self, text):
+        tokens = self.tokenize(text)
+        ids = []
+        for token in tokens:
+            ids.append(self.token_to_id[token]["id"])
+        return ids
+
+    def decode(self, ids):
+        tokens = []
+        for id in ids:
+            tokens.append(self.id_to_token[id])
+        return self.detokenize(tokens)
 
     def detokenize(self, tokens):
-        raise NotImplementedError
+        text = "".join(tokens)
+        text = text.replace("</w>", " ")
+        return text

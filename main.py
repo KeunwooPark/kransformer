@@ -6,3 +6,5 @@ from src.tokenizer.BPETokenizer import BPETokenizer
 data_loader = ArxivDataLoader()
 tokenizer = BPETokenizer(data_loader)
 tokenizer.train()
+
+print(tokenizer.tokenize("hello world"))
