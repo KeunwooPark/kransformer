@@ -2,7 +2,7 @@
 import sys
 import pathlib
 
-root = pathlib.Path(__file__).parent.parent.parent.absolute()
+root = pathlib.Path(__file__).parent.parent.parent.parent.absolute()
 sys.path.append(str(root))
 
 from src.dataloader.TextDataLoader import TextDataLoader
