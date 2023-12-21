@@ -136,41 +136,49 @@ class BPETokenizer(Tokenizer):
 
         return tokens
 
+    # TODO: Check if this is correct. I'm not sure that this maximizes the likelihood (counts) of the training data.
+    # this is not optimal because the best matching token is not always bigram and if so, it will not be merged.
     def _tokenize_word(self, word):
-        # merge tokens until the tokens cannot be merged anymore
-        # the merge process is the same as the training process
-        # it creates all the possible bigrams and merge the bigram that has the highest count in the word_counts
+        # possible solution: split the word one by one and check if the splitted word is in the token_to_id. this process tries to find the longest token that is in the token_to_id.
+        (
+            word_before_token,
+            token,
+            word_after_token,
+        ) = self._find_the_longest_matching_token(word)
 
-        word_count = {word: 1}
-        while True:
-            pair_counts = self._get_token_pair_counts(word_count)
+        tokenized_before_token = []
+        if word_before_token != "":
+            tokenized_before_token = self._tokenize_word(word_before_token)
 
-            # for all the pairs, find the pair with the highest count in the token_to_id
-            best_pair = None
-            for pair in pair_counts:
-                bigram = "".join(pair)
-                if bigram in self.token_to_id:
-                    if best_pair is None:
-                        best_pair = pair
-                        continue
-                    else:
-                        best_bigram = "".join(best_pair)
-                        if (
-                            self.token_to_id[bigram]["count"]
-                            > self.token_to_id[best_bigram]["count"]
-                        ):
-                            best_pair = pair
+        tokenzized_after_token = []
+        if word_after_token != "":
+            tokenzized_after_token = self._tokenize_word(word_after_token)
 
-            if best_pair is None:
-                break
+        return tokenized_before_token + [token] + tokenzized_after_token
 
-            word_count = self._merge_word_counts(best_pair, word_count)
+    def _find_the_longest_matching_token(self, word):
+        # find the longest matching token
+        # use breadth first search
+        # e.g. word = "a b c d e </w>"
+        letters = word.split()
+        for i in range(len(letters), 0, -1):
+            token, token_idx = self._find_the_matching_token_with_length(letters, i)
+            if token is not None:
+                # add spaces because they are words
+                word_before_token = " ".join(letters[:token_idx])
+                word_after_token = " ".join(letters[token_idx + i :])
+                return word_before_token, token, word_after_token
 
-        # after the merge process, the word_count should have only one key
-        # which is the merged token
-        # return the merged token
-        tokenized_word = list(word_count.keys())[0]
-        return tokenized_word.split()
+        raise Exception("No matching token found.")
+
+    def _find_the_matching_token_with_length(self, letters, length):
+        num_shift = len(letters) - length + 1
+        for i in range(num_shift):
+            token = "".join(letters[i : i + length])
+            if token in self.token_to_id:
+                return token, i
+
+        return None, None
 
     def encode(self, text):
         tokens = self.tokenize(text)
